@@ -31,6 +31,7 @@ namespace ScreenConnect.Integration
         private const int sessionTypeAccess = 2;
         private const int sessionTypeMeet = 1;
         private const int sessionTypeSupport = 0;
+        private static readonly string CharacterSetAlphanumeric = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
         private static readonly DateTime UnixEpoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         private string antiForgeryToken;
         private string aspEventValidation;
@@ -49,6 +50,7 @@ namespace ScreenConnect.Integration
 
         private string relayPort;
 
+        private bool SC21SessionMode = false;
         private string sc6loginbuttonid = null;
         private string serverVersion;
         private int serverVersionMain = 0;
@@ -63,8 +65,6 @@ namespace ScreenConnect.Integration
         public string LoginErrorCode => this.LoginResult;
         public bool NoLoginError => this.LoginResult == null || this.LoginResult == string.Empty;
         public bool OneTimePasswordRequired => this.LoginResult == "OneTimePasswordInvalid";
-
-        private bool SC21SessionMode = false;
 
         #endregion Public Properties
 
@@ -220,6 +220,10 @@ namespace ScreenConnect.Integration
             if (this.serverVersionMain >= 5 || this.serverVersion.StartsWith("ScreenConnect/4.3"))
             {
                 appName = "Elsinore.ScreenConnect.Client.application";
+            }
+            if (this.serverVersionMain >= 24)
+            {
+                appName = "ScreenConnect.Client.application";
             }
             string url = this.baseUrl + "/Bin/" + appName + "?";
             url += "h=" + this.hostName + "&";
@@ -435,6 +439,20 @@ namespace ScreenConnect.Integration
 
         #region Private Methods
 
+        private static string GeneratePassword(int length, string characterSet)
+        {
+            char[] characterArray = characterSet.ToCharArray();
+            byte[] bytes = new byte[length * 8];
+            new RNGCryptoServiceProvider().GetBytes(bytes);
+            char[] result = new char[length];
+            for (int i = 0; i < length; i++)
+            {
+                ulong value = BitConverter.ToUInt64(bytes, i * 8);
+                result[i] = characterArray[value % (uint)characterArray.Length];
+            }
+            return new string(result);
+        }
+
         [DllImport("dfshim.dll", EntryPoint = "LaunchApplication", CharSet = CharSet.Unicode)]
         private static extern int LaunchApplication(string UrlToDeploymentManifest, System.IntPtr dataMustBeNull, uint flagsMustBeZero);
 
@@ -454,6 +472,7 @@ namespace ScreenConnect.Integration
         {
             return "[{\"HostSessionInfo\":{\"sessionType\":" + mode + ",\"sessionGroupPathParts\":[" + (category != null ? "\"" + category + "\"" : "") + "],\"sessionLimit\":1000},\"ActionCenterInfo\":{}},0]";
         }
+
         private string buildHostSessionInfoParamV3(int mode, string category)
         {
             object info = new object[] { mode, category == null ? new string[0] : new string[] { category }, null, null, 0 };
@@ -493,6 +512,10 @@ namespace ScreenConnect.Integration
 
                     default:
                         throw new NotSupportedException("Only types msi, exe, pkg, deb, rpm, sh supported in this version of ScreenConnect");
+                }
+                if (this.serverVersionMain >= 24)
+                {
+                    url = url.Replace("Bin/Elsinore.ScreenConnect.", "Bin/ScreenConnect.");
                 }
                 url += "h=" + this.hostName + "&";
                 url += "p=" + this.relayPort + "&";
@@ -794,6 +817,37 @@ namespace ScreenConnect.Integration
             }
         }
 
+        private void loginSc21(string oneTimePassword = null)
+        {
+            string nonce = GeneratePassword(16, CharacterSetAlphanumeric);
+            string loginString = null;
+            if (oneTimePassword == null)
+            {
+                loginString = "[\"" + this.nc.UserName.Replace("\"", "\\\"") + "\",\"" + this.nc.Password.Replace("\"", "\\\"") + "\",null,null,\"" + nonce + "\"]";
+            }
+            else
+            {
+                loginString = "[\"" + this.nc.UserName.Replace("\"", "\\\"") + "\",\"" + this.nc.Password.Replace("\"", "\\\"") + "\",\"" + oneTimePassword.Replace("\"", "\\\"") + "\",null,\"" + nonce + "\"]";
+            }
+            string loginResult = HttpPost(this.baseUrl + "/Services/AuthenticationService.ashx/TryLogin", loginString, true);
+            switch (loginResult)
+            {
+                case "0":
+                case "1":
+                    // Success
+                    break;
+
+                case "11":
+                    // OTP Auth required
+                    this.LoginResult = "OneTimePasswordInvalid";
+                    break;
+
+                default:
+                    this.LoginResult = "Invalid credentials";
+                    break;
+            }
+        }
+
         private void loginSc6()
         {
             System.Net.WebRequest req = System.Net.WebRequest.Create(this.baseUrl + "/Login");
@@ -838,51 +892,6 @@ namespace ScreenConnect.Integration
                 // Retry Login - sometimes takes too long?
                 updateViewstate(HttpPost(this.baseUrl + "/Login", loginString, true));
             }
-        }
-
-        private void loginSc21(string oneTimePassword = null)
-        {
-            string nonce = GeneratePassword(16, CharacterSetAlphanumeric);
-            string loginString = null;
-            if (oneTimePassword == null)
-            {
-                loginString = "[\"" + this.nc.UserName.Replace("\"", "\\\"") + "\",\"" + this.nc.Password.Replace("\"", "\\\"") + "\",null,null,\"" + nonce + "\"]";
-            }
-            else
-            {
-                loginString = "[\"" + this.nc.UserName.Replace("\"", "\\\"") + "\",\"" + this.nc.Password.Replace("\"", "\\\"") + "\",\"" + oneTimePassword.Replace("\"", "\\\"") + "\",null,\"" + nonce + "\"]";
-            }
-            string loginResult = HttpPost(this.baseUrl + "/Services/AuthenticationService.ashx/TryLogin", loginString, true);
-            switch (loginResult)
-            {
-                case "0":
-                case "1":
-                    // Success
-                    break;
-                case "11":
-                    // OTP Auth required
-                    this.LoginResult = "OneTimePasswordInvalid";
-                    break;
-                default:
-                    this.LoginResult = "Invalid credentials";
-                    break;
-            }
-        }
-
-        private static readonly string CharacterSetAlphanumeric = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-        private static string GeneratePassword(int length, string characterSet)
-        {
-            char[] characterArray = characterSet.ToCharArray();
-            byte[] bytes = new byte[length * 8];
-            new RNGCryptoServiceProvider().GetBytes(bytes);
-            char[] result = new char[length];
-            for (int i = 0; i < length; i++)
-            {
-                ulong value = BitConverter.ToUInt64(bytes, i * 8);
-                result[i] = characterArray[value % (uint)characterArray.Length];
-            }
-            return new string(result);
         }
 
         private void loginSc6Otp(string oneTimePassword)

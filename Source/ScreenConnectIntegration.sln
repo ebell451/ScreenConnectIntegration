@@ -1,9 +1,18 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 10.00
-# Visual Studio 2008
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36511.14 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScTray", "ScTray\ScTray.csproj", "{E5F08DFD-63D5-4960-A965-C029E0FED374}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScInteg", "ScInteg\ScInteg.csproj", "{8404F850-B9A0-402D-A073-CB9717CE0FE9}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{B00DE9E9-351B-4658-9EF8-79E3109CEC39}"
+	ProjectSection(SolutionItems) = preProject
+		copyBuild.cmd = copyBuild.cmd
+		Directory.Packages.props = Directory.Packages.props
+		ReadMe.txt = ReadMe.txt
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -22,5 +31,17 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(TeamFoundationVersionControl) = preSolution
+		SccNumberOfProjects = 3
+		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
+		SccTeamFoundationServer = https://tfs.taonas.net/tfs/projekte%20csa
+		SccLocalPath0 = .
+		SccProjectUniqueName1 = ScInteg\\ScInteg.csproj
+		SccProjectName1 = ScInteg
+		SccLocalPath1 = ScInteg
+		SccProjectUniqueName2 = ScTray\\ScTray.csproj
+		SccProjectName2 = ScTray
+		SccLocalPath2 = ScTray
 	EndGlobalSection
 EndGlobal

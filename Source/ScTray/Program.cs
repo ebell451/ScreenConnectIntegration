@@ -110,6 +110,7 @@ namespace ScreenConnect.ScTray
 
         #region Private Methods
 
+        [STAThread]
         private static void Main(string[] args)
         {
             WebRequest.DefaultWebProxy = null;
@@ -249,6 +250,25 @@ namespace ScreenConnect.ScTray
             }
         }
 
+        private void OnCreateInstaller(object sender, EventArgs e)
+        {
+            string input = null;
+            DialogResult dResult = InputBox("Create Installer", "Enter Installer Name:", ref input);
+            if (dResult == DialogResult.OK)
+            {
+                byte[] installer = sc.createAccessSessionMSI(input);
+                SaveFileDialog savePath = new SaveFileDialog
+                {
+                    FileName = "ScreenConnect.msi",
+                    Filter = "MSI files (*.msi)|*.msi|All files (*.*)|*.*",
+                };
+                if (savePath.ShowDialog() == DialogResult.OK)
+                {
+                    System.IO.File.WriteAllBytes(savePath.FileName, installer);
+                }
+            }
+        }
+
         private void OnCreateSession(object sender, EventArgs e)
         {
             string input = null;
@@ -268,6 +288,7 @@ namespace ScreenConnect.ScTray
         {
             this.trayMenu.MenuItems.Clear();
             this.trayMenu.MenuItems.Add("New Session", OnCreateSession);
+            this.trayMenu.MenuItems.Add("Download Installer", OnCreateInstaller);
             sc.refreshCategories();
             MenuItem support = new MenuItem("Support");
             buildMenu(support, sc.support);
